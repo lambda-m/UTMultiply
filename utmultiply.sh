@@ -9,17 +9,35 @@ RESET='\033[0m'
 
 # Help Message
 show_help() {
-    echo -e "${CYAN}Usage: $0 [options]\n${RESET}"
+    echo -e "${CYAN}Usage: $0 [options]${RESET}"
     echo -e "${CYAN}Clone a UTM template VM with a new hostname, configure SSH, and set up networking.${RESET}"
-    echo -e "${CYAN}Options:${RESET}\n"
-    echo -e "  ${CYAN}-h, --help${RESET}        Show this help message.\n"
+    echo -e "${CYAN}Options:${RESET}"
+    echo -e "  ${CYAN}-h, --help${RESET}        Show this help message."
+    echo -e "  ${CYAN}-a, --all-vms${RESET}     Allow cloning of any VM, not just templates."
+    echo -e "${YELLOW}Warning: Cloning non-template VMs may cause issues if the VM is not set up for cloning, e.g., static IP configuration, missing QEMU guest agent, etc.${RESET}"
     exit 0
 }
 
+
 # Parse Options
-if [[ $1 == "-h" || $1 == "--help" ]]; then
-    show_help
-fi
+include_all_vms=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_help
+            ;;
+        -a|--all-vms)
+            include_all_vms=true
+            echo -e "${YELLOW}Warning: Cloning non-template VMs may cause issues if the VM is not set up for cloning (e.g., static IP, missing QEMU guest agent).${RESET}"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            ;;
+    esac
+done
+
 
 # Spinner
 spinner() {
@@ -36,10 +54,24 @@ spinner() {
     printf "    \b\b\b\b"
 }
 
-# Fetch Template VMs
+# Fetch Template VMs or All VMs based on the include_all_vms flag
 fetch_templates() {
-    echo -ne "${YELLOW}Fetching list of Template VMs...${RESET}"
-    template_vms=$(osascript <<END
+    echo -ne "${YELLOW}Fetching list of VMs...${RESET}"
+    if [ "$include_all_vms" = true ]; then
+        # Fetch all VMs
+        vm_names=$(osascript <<END
+tell application "UTM"
+    set allVMNames to ""
+    repeat with vm in virtual machines
+        set allVMNames to allVMNames & name of vm & linefeed
+    end repeat
+    return allVMNames
+end tell
+END
+)
+    else
+        # Fetch only Template VMs
+        vm_names=$(osascript <<END
 tell application "UTM"
     set templateNames to ""
     repeat with vm in virtual machines
@@ -51,9 +83,11 @@ tell application "UTM"
 end tell
 END
 )
-    IFS=$'\n' read -r -d '' -a template_array <<< "$template_vms"
+    fi
+    IFS=$'\n' read -r -d '' -a template_array <<< "$vm_names"
     echo -e " ${GREEN}[Done]${RESET}"
 }
+
 
 # Display Templates and Get User Selection
 select_template() {
