@@ -131,13 +131,14 @@ start_vm() {
 # Retrieve IP Address
 get_ip_address() {
     echo -ne "${YELLOW}Retrieving IP address...${RESET}"
+    sleep 10
     for i in {1..10}; do
         ipv4_address=$(utmctl ip-address "$new_hostname" 2>/dev/null | head -n 1)
         if [[ -n "$ipv4_address" ]]; then
             echo -e "${GREEN}[Done]${RESET}"
             return 0
         fi
-        sleep 2
+        sleep 4
     done
     echo -e "${RED}[Failed]${RESET}"
     exit 1
